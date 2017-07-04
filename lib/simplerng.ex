@@ -6,6 +6,19 @@ defmodule SimpleRNG do
   """
   @default_seed {521288629, 362436069}
 
+  def start(_type, _args) do
+    import Supervisor.Spec, warn: false
+
+    children = [
+      worker(SimpleRNG, []),
+    ]
+
+    # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :one_for_one, name: SimpleRNG.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+
   def start_link() do
     GenServer.start_link(__MODULE__, @default_seed, name: __MODULE__)
   end

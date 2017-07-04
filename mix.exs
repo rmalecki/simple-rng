@@ -4,10 +4,13 @@ defmodule Simplerng.Mixfile do
   def project do
     [app: :simplerng,
      version: "0.1.0",
+     name: "SimpleRNG",
+     source_url: "https://github.com/rmalecki/simple-rng",
      elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps()]
+     deps: deps(),
+     package: package()]
   end
 
   # Configuration for the OTP application
@@ -15,7 +18,17 @@ defmodule Simplerng.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     # Specify extra applications you'll use from Erlang/Elixir
-    [extra_applications: [:logger]]
+    [extra_applications: [:logger],
+    mod: {SimpleRNG, []}]
+  end
+
+  defp package do
+    [
+      files: ["lib", "mix.exs", "README", "LICENSE*"],
+      maintainers: ["Rouven Malecki"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/rmalecki/simple-rng"}
+    ]
   end
 
   # Dependencies can be Hex packages:
