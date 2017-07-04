@@ -69,10 +69,16 @@ defmodule SimpleRNG.Server do
   @doc """
   Set a new seed for the RNG
   """
-  def set_seed(u), do: set_seed(u >>> 16, u &&& 0xffffffff)
+  def set_seed(u), do: set_seeds(u >>> 16, u &&& 0xffffffff)
 
-  def set_seed(m_w, m_z) do
+  def set_seeds(m_w, m_z) do
     GenServer.cast __MODULE__, {:set_seed, m_w, m_z}
+  end
+
+  def set_seed(pid, u), do: set_seeds(pid, u >>> 16, u &&& 0xffffffff)
+
+  def set_seeds(pid, m_w, m_z) do
+    GenServer.cast pid, {:set_seed, m_w, m_z}
   end
 
   @doc """
