@@ -1,16 +1,83 @@
 defmodule SimpleRNG do
-  use GenServer
   use Bitwise, only_operators: true
   @moduledoc """
   SimpleRNG is a simple random number generator using Marsaglia's MWC (multiply with carry) algorithm.
   """
+
+  @doc """
+  Returns random unsigned 64bit integer
+  """
+  def get_uint({m_w, m_z}) do
+    m_z_new = (36969 * (m_z &&& 0xffff) + (m_z >>> 16)) &&& 0xffffffff
+    m_w_new = (18000 * (m_w &&& 0xffff) + (m_w >>> 16)) &&& 0xffffffff
+    n = ((m_z_new <<< 16) + m_w_new) &&& 0xffffffff
+    {{m_w_new, m_z_new}, n}
+  end
+
+  @doc """
+  Returns integer between min (inclusive) and max (exclusive)
+  """
+  def get_int(seed, min, max) when max <= min, do: {seed, min}
+  def get_int(seed, min, max) do
+    {seed_new, x} = get_uint(seed)
+    {seed_new, min + rem(x, max - min)}
+  end
+
+  @doc """
+  Returns uniform random sample 0.0 > x < 1.0
+  """
+  def get_uniform(seed) do
+    {seed_new, x} = get_uint(seed)
+    {seed_new, (x + 1.0) / (:math.pow(2, 32) + 2)}
+  end
+
+  @doc """
+  Returns normal (Gaussian) random sample with mean 0 and standard deviation 1
+  """
+  def get_normal(seed) do
+    # Box-Muller algorithm
+    {seed2, u1} = get_uniform(seed)
+    {seed3, u2} = get_uniform(seed2)
+    r = :math.sqrt(-2.0 * :math.log(u1))
+    theta = 2.0 * :math.pi * u2
+    {seed3, r * :math.sin(theta)}
+  end
+
+  # Swaps elements a and b in a list
+  defp swap(xs, a, b) when a === b, do: xs
+  defp swap(xs, a, b) when b < a, do: swap(xs, b, a)
+  defp swap(xs, a, b) do
+    s1 = Enum.slice(xs, 0, a)
+    [x | s2] = Enum.slice(xs, a, b - a)
+    [y | s3] = Enum.slice(xs, b, Enum.count(xs))
+    s1 ++ [y | s2] ++ [x | s3]
+  end
+
+  # Swap element at a with element at random position before a
+  defp shuffle(xs, seed, a) when a === 0, do: {seed, xs}
+  defp shuffle(xs, seed, a) do
+    {new_seed, b} = get_int(seed, 0, a)
+    xs |> swap(a - 1, b) |> shuffle(new_seed, a - 1)
+  end
+
+  # Fisher-Yates (Knuth) shuffle a list
+  def shuffle(seed, xs) do
+    xs |> shuffle(seed, Enum.count(xs))
+  end
+
+end
+
+defmodule SimpleRNG.Server do
+  use GenServer
+  use Bitwise, only_operators: true
+
   @default_seed {521288629, 362436069}
 
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
 
     children = [
-      worker(SimpleRNG, []),
+      worker(SimpleRNG.Server, []),
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
@@ -39,65 +106,48 @@ defmodule SimpleRNG do
     GenServer.call __MODULE__, :get_uint
   end
 
-  @doc """
-  Returns integer between min (inclusive) and max (exclusive)
-  """
-  def get_int(min, max) when max <= min, do: min
   def get_int(min, max) do
-    min + rem(get_uint(), max - min)
+    GenServer.call __MODULE__, {:get_uint, min, max}
   end
 
-  @doc """
-  Returns uniform random sample 0.0 > x < 1.0
-  """
-  @magic 1.0 / (:math.pow(2, 32) + 2)
-  def get_uniform() do
-    (get_uint() + 1.0) * @magic
+  def get_uniform do
+    GenServer.call __MODULE__, :get_uniform
   end
 
-  @doc """
-  Returns normal (Gaussian) random sample with mean 0 and standard deviation 1
-  """
   def get_normal do
-    # Box-Muller algorithm
-    u1 = get_uniform()
-    u2 = get_uniform()
-    r = :math.sqrt(-2.0 * :math.log(u1))
-    theta = 2.0 * :math.pi * u2
-    r * :math.sin(theta)
+    GenServer.call __MODULE__, :get_normal
   end
 
-  # Swaps elements a and b in a list
-  defp swap(xs, a, b) when a === b, do: xs
-  defp swap(xs, a, b) when b < a, do: swap(xs, b, a)
-  defp swap(xs, a, b) do
-    s1 = Enum.slice(xs, 0, a)
-    [x | s2] = Enum.slice(xs, a, b - a)
-    [y | s3] = Enum.slice(xs, b, Enum.count(xs))
-    s1 ++ [y | s2] ++ [x | s3]
-  end
-
-  # Swap element at a with element at random position before a
-  defp shuffle(xs, a) when a === 0, do: xs
-  defp shuffle(xs, a) do
-    b = get_int(0, a)
-    xs |> swap(a - 1, b) |> shuffle(a - 1)
-  end
-
-  # Fisher-Yates (Knuth) shuffle a list
   def shuffle(xs) do
-    xs |> shuffle(Enum.count(xs))
+    GenServer.call __MODULE__, {:shuffle, xs}
   end
 
   ######
   # GenServer implementation
 
-  # Marsaglia's MWC algorithm
-  def handle_call(:get_uint, _from, {m_w, m_z}) do
-    m_z_new = (36969 * (m_z &&& 0xffff) + (m_z >>> 16)) &&& 0xffffffff
-    m_w_new = (18000 * (m_w &&& 0xffff) + (m_w >>> 16)) &&& 0xffffffff
-    n = ((m_z_new <<< 16) + m_w_new) &&& 0xffffffff
-    {:reply, n, {m_w_new, m_z_new}}
+  def handle_call(:get_uint, _from, seed) do
+    {new_seed, n} = SimpleRNG.get_uint(seed)
+    {:reply, n, new_seed}
+  end
+
+  def handle_call({:get_int, min, max}, _from, seed) do
+    {new_seed, n} = SimpleRNG.get_int(seed, min, max)
+    {:reply, n, new_seed}
+  end
+
+  def handle_call(:get_uniform, _from, seed) do
+    {new_seed, n} = SimpleRNG.get_uniform(seed)
+    {:reply, n, new_seed}
+  end
+
+  def handle_call(:get_normal, _from, seed) do
+    {new_seed, n} = SimpleRNG.get_normal(seed)
+    {:reply, n, new_seed}
+  end
+
+  def handle_call({:shuffle, xs}, _from, seed) do
+    {new_seed, shuffled} = SimpleRNG.shuffle(seed, xs)
+    {:reply, shuffled, new_seed}
   end
 
   def handle_cast({:set_seed, m_w, m_z}, _) do
