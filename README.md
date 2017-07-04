@@ -1,6 +1,6 @@
 # Simplerng
 
-**TODO: Add description**
+SimpleRNG is a simple random number generator for Elixir using Marsaglia's MWC (multiply with carry) algorithm.
 
 ## Installation
 
@@ -16,4 +16,3 @@ end
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/simplerng](https://hexdocs.pm/simplerng).
-
