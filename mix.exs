@@ -3,7 +3,7 @@ defmodule Simplerng.Mixfile do
 
   def project do
     [app: :simplerng,
-     version: "0.1.0",
+     version: "0.1.1",
      name: "SimpleRNG",
      source_url: "https://github.com/rmalecki/simple-rng",
      elixir: "~> 1.4",
