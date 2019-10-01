@@ -69,13 +69,13 @@ defmodule SimpleRNG.Server do
   @doc """
   Set a new seed for the RNG
   """
-  def set_seed(u), do: set_seeds(u >>> 16, u &&& 0xffffffff)
+  def set_seed(u), do: set_seeds(u >>> 32, u &&& 0xffffffff)
 
   def set_seeds(m_w, m_z) do
     GenServer.cast __MODULE__, {:set_seed, m_w, m_z}
   end
 
-  def set_seed(pid, u), do: set_seeds(pid, u >>> 16, u &&& 0xffffffff)
+  def set_seed(pid, u), do: set_seeds(pid, u >>> 32, u &&& 0xffffffff)
 
   def set_seeds(pid, m_w, m_z) do
     GenServer.cast pid, {:set_seed, m_w, m_z}
@@ -101,8 +101,8 @@ defmodule SimpleRNG.Server do
     GenServer.call pid, {:shuffle, xs}
   end
 
-  def get_state(pid) do
-    GenServer.call pid, :get_state
+  def get_seed(pid) do
+    GenServer.call pid, :get_seed
   end
 
   ######
@@ -140,8 +140,8 @@ defmodule SimpleRNG.Server do
     {:noreply, {m_w &&& 0xffffffff, m_z &&& 0xffffffff}}
   end
 
-  def handle_call(:get_state, _from, seed) do
-    {:reply, seed, seed}
+  def handle_call(:get_seed, _from, state = {m_w, m_z}) do
+    {:reply, ((m_w &&& 0xffffffff) <<< 32) + (m_z &&& 0xffffffff), state}
   end
 
 end
