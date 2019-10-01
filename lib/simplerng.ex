@@ -101,6 +101,10 @@ defmodule SimpleRNG.Server do
     GenServer.call pid, {:shuffle, xs}
   end
 
+  def get_state(pid) do
+    GenServer.call pid, :get_state
+  end
+
   ######
   # GenServer implementation
 
@@ -134,6 +138,10 @@ defmodule SimpleRNG.Server do
 
   def handle_cast({:set_seed, m_w, m_z}, _) do
     {:noreply, {m_w &&& 0xffffffff, m_z &&& 0xffffffff}}
+  end
+
+  def handle_call(:get_state, _from, seed) do
+    {:reply, seed, seed}
   end
 
 end
